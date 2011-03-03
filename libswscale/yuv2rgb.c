@@ -556,6 +556,10 @@ SwsFunc ff_yuv2rgb_get_func_ptr(SwsContext *c)
     if (c->flags & SWS_CPU_CAPS_ALTIVEC)
         t = ff_yuv2rgb_init_altivec(c);
 #endif
+#if HAVE_NEON
+if (c->flags & SWS_CPU_CAPS_NEON)
+    t = ff_yuv2rgb_init_neon(c);
+#endif
 
 #if ARCH_BFIN
     if (c->flags & SWS_CPU_CAPS_BFIN)

@@ -1672,6 +1672,8 @@ int ff_hardcodedcpuflags(void)
     flags |= SWS_CPU_CAPS_ALTIVEC;
 #elif ARCH_BFIN
     flags |= SWS_CPU_CAPS_BFIN;
+#elif HAVE_NEON
+    flags |= SWS_CPU_CAPS_NEON;
 #endif
     return flags;
 }

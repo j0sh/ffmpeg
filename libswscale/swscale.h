@@ -101,6 +101,7 @@ const char *swscale_license(void);
 #define SWS_CPU_CAPS_ALTIVEC  0x10000000
 #define SWS_CPU_CAPS_BFIN     0x01000000
 #define SWS_CPU_CAPS_SSE2     0x02000000
+#define SWS_CPU_CAPS_NEON     0x04000000
 
 #define SWS_MAX_REDUCE_CUTOFF 0.002
 
