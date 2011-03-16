@@ -252,6 +252,17 @@ typedef struct SwsContext {
     DECLARE_ALIGNED(8, uint64_t, sparc_coeffs)[10];
 #endif
 
+#if HAVE_NEON
+    DECLARE_ALIGNED(2, int16_t, oy);
+    DECLARE_ALIGNED(2, int16_t, oc);
+    DECLARE_ALIGNED(2, int16_t, cy);
+    DECLARE_ALIGNED(2, int16_t, crv);
+    DECLARE_ALIGNED(2, int16_t, cbu);
+    DECLARE_ALIGNED(2, int16_t, cgu);
+    DECLARE_ALIGNED(2, int16_t, cgv);
+    DECLARE_ALIGNED(2, int16_t, pad);
+#endif
+
     /* function pointers for swScale() */
     void (*yuv2nv12X  )(struct SwsContext *c,
                         const int16_t *lumFilter, const int16_t **lumSrc, int lumFilterSize,
