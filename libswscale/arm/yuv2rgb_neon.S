@@ -5,69 +5,89 @@
 
 function ff_neon_yuv420_bgr24, export=1
     @ load data into registers
-    vld2.32 {q0},    [r0, :128] @ Y, split into registers for even/odd pixels
-    vld1.32 {d2},    [r1, :64]  @ U
-    vld1.32 {d4},    [r2, :64]  @ V
+    vld2.32 {q1},    [r0, :128] @ Y, split into registers for even/odd pixels
+    vld1.32 {d6},    [r1, :64]  @ U
+    vld1.32 {d8},    [r2, :64]  @ V
 
-    ldr r0, [sp]             @ extra parameter
-    vld1.16 {q3},    [r0]    @ loads 7x16-bit scalars: oy, oc, crv, cbu, cgu, cgv
+    ldr r0, [sp]            @ extra parameter
+    vld1.16 {q0},    [r0]   @ loads 8x16-bit scalars: oy, oc, cy, crv, cbu, cgu, cgv, pad
 
     @ process each YUV pixel by the following:
-    @ X' = X - Xoffset
+    @ X' = X*8 - Xoffset
 
-    @ Widen to 16bit
-    vmovl.u8 q10, d0 @ Y
-    vmovl.u8 q11, d1
-    vmovl.u8 q12, d2 @ U
-    vmovl.u8 q13, d4 @ V
+    @ q1, q2 == y
+    vdup.16 q5, d0[0]  @ y offset
 
-    @ subtract by offsets
-    vdup.s16 q14, d6[0]    @ luma offset
-    vdup.s16 q15, d6[1]    @ chroma offset
-    vsub.s16 q10, q10, q14 @ Y'
-    vsub.s16 q11, q11, q14
-    vsub.s16 q12, q12, q15 @ U'
-    vsub.s16 q13, q13, q15 @ V'
+    vshll.u8 q2, d3, #3
+    vshll.u8 q1, d2, #3
+    vsub.i16 q1, q1, q5
+    vsub.i16 q2, q2, q5
 
-    @ calculate R = Y' * Ycoef + V' * Vred, place in q7
+    @ calculate Y' * Ycoeff
 
-    @ calculate and store Y' * Ycoef
-    vqdmulh.s16 q10, q10, d6[2] @ first half of Y'
-    vqdmulh.s16 q11, q11, d6[2] @ second half of Y'
-    vshr.s16 q10, q10, #1    @ get rid of the doubling from vqmuldh
-    vshr.s16 q11, q11, #1
+    vmull.s16 q6, d3, d0[2]
+    vmull.s16 q5, d2, d0[2]
+    vmull.s16 q8, d5, d0[2]
+    vmull.s16 q7, d4, d0[2]
+    @ 32 - (11 + 11)
+    vrshrn.s32 d2, q5, #10
+    vrshrn.s32 d3, q6, #10
+    vrshrn.s32 d4, q7, #10
+    vrshrn.s32 d5, q8, #10
 
-    vqdmulh.s16 q14, q13, d6[3]  @ V' * Vred
-    vshr.s16 q14, q14, #1
+    @ q6 = u, q7 = v
+    vdup.16 q6, d0[1] @ load with chroma offseet
 
-    vraddhn.s16 d14, q10, q14
-    vraddhn.s16 d15, q11, q14
-    vzip.u8 d14, d15         @ re-interleave even/odd Y values
+    @ calculate U' = U * 8 - chroma_offset, same for V
+    vshll.u8 q3, d6, #3
+    vshll.u8 q4, d8, #3
+    vsub.s16 q3, q3, q6
+    vsub.s16 q4, q4, q6
 
-    @ calculate B = Y' * Ycoef + U' * Ublue, place in q9
+    @ Calculate V' * Vred
+    vmull.s16 q9, d8, d0[3]
+    vmull.s16 q10, d9, d0[3]
+    vshrn.s32 d14, q9, #10
+    vshrn.s32 d15, q10, #10
 
-    vqdmulh.s16 q14, q12, d7[0] @ U' * Ublue
-    vshr.s16    q14, q14, #1
+    @ R = Y' * Ycoef + V' * Vred
+    vqadd.s16 q10, q1, q7
+    vqadd.s16 q11, q2, q7
+    vrshrn.s16 d20, q10, #8
+    vrshrn.s16 d21, q11, #8
+    vzip.u8 d20, d21
 
-    vraddhn.i16 d18, q10, q14
-    vraddhn.i16 d19, q11, q14
-    vzip.u8     d18, d19
+    @ B = Y ' * Ycoef + U' * Ublue
+    vmull.s16 q8, d6, d1[0]
+    vmull.s16 q9, d7, d1[0]
+    vshrn.s32 d14, q8, #9
+    vshrn.s32 d15, q9, #9
 
-    @ calculate G = Y' * Ycoef + V' * Vgreen + U' * Ugreen, place in q8
+    vqadd.s16 q11, q1, q7
+    vqadd.s16 q12, q2, q7
+    vshrn.s16 d24, q11, #8
+    vshrn.s16 d25, q12, #8
+    vzip.u8 d24, d25
 
-    vqdmulh.s16 q14, q13, d7[1] @ U' * Ugreen
-    vshr.s16 q14, q14, #1
+    @ G = Y' * Ycoef + U' * Ugreen + V' + Vgreen
+    vmull.s16 q7, d6, d1[1] @ U' + Ugreen
+    vmull.s16 q8, d7, d1[1]
+    vshrn.s32 d14, q7, #10
+    vshrn.s32 d15, q8, #10
 
-    vqdmulh.s16 q15, q13, d7[2]  @ V' * Vgreen
-    vshr.s16 q15, q15, #1
+    vmull.s16 q8, d8, d1[2] @ V' + Vgreen
+    vmull.s16 q9, d9, d1[2]
+    vshrn.s32 d16, q8, #10
+    vshrn.s32 d17, q9, #10
 
-    vadd.i16 q14, q14, q15
-    vraddhn.i16 d16, q10, q14
-    vraddhn.i16 d17, q11, q14
-    vzip.u8 d16, d17
+    vqadd.s16 q7, q7, q8  @ U' * Ugreen + V' * Vgreen
+    vqadd.s16 q11, q1, q7 @ add chroma to Y1
+    vqadd.s16 q13, q2, q7 @ add chroma to Y2
+    vshrn.s16 d22, q11, #8
+    vshrn.s16 d23, q13, #8
 
-    vst3.8 {d14, d16, d18}, [r3]!
-    vst3.8 {d15, d17, d19}, [r3]
+    vst3.8 {d20, d22, d24}, [r3, :64]!
+    vst3.8 {d21, d23, d25}, [r3, :64]
 
     bx lr
 endfunc
