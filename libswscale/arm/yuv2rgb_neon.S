@@ -5,7 +5,7 @@
 
 function ff_neon_yuv420_bgr24, export=1
     @ load data into registers
-    vld2.32 {q1},    [r0, :128] @ Y, split into registers for even/odd pixels
+    vld2.8 {q1},    [r0, :128] @ Y, split into registers for even/odd pixels
     vld1.32 {d6},    [r1, :64]  @ U
     vld1.32 {d8},    [r2, :64]  @ V
 
@@ -15,79 +15,90 @@ function ff_neon_yuv420_bgr24, export=1
     @ process each YUV pixel by the following:
     @ X' = X*8 - Xoffset
 
-    @ q1, q2 == y
-    vdup.16 q5, d0[0]  @ y offset
-
     vshll.u8 q2, d3, #3
     vshll.u8 q1, d2, #3
-    vsub.i16 q1, q1, q5
-    vsub.i16 q2, q2, q5
+    vdup.u16 q5, d0[0]
+    vqsub.u16 q1, q1, q5
+    vqsub.u16 q2, q2, q5
 
-    @ calculate Y' * Ycoeff
+    vmull.u16 q5, d2, d0[2]
+    vmull.u16 q6, d3, d0[2]
+    vmull.u16 q7, d4, d0[2]
+    vmull.u16 q8, d5, d0[2]
 
-    vmull.s16 q6, d3, d0[2]
-    vmull.s16 q5, d2, d0[2]
-    vmull.s16 q8, d5, d0[2]
-    vmull.s16 q7, d4, d0[2]
-    @ 32 - (11 + 11)
-    vrshrn.s32 d2, q5, #10
-    vrshrn.s32 d3, q6, #10
-    vrshrn.s32 d4, q7, #10
-    vrshrn.s32 d5, q8, #10
+    @ narrow by 13. why 13? trial and error
+    vqshrn.u32 d2, q5, #13
+    vqshrn.u32 d3, q6, #13
+    vqshrn.u32 d4, q7, #13
+    vqshrn.u32 d5, q8, #13
 
-    @ q6 = u, q7 = v
-    vdup.16 q6, d0[1] @ load with chroma offseet
+    @ luma packing
+    @vqshrn.u16 d2, q1, #3
+    @vqshrn.u16 d3, q2, #3
+    @vzip.u8 d2, d3
 
-    @ calculate U' = U * 8 - chroma_offset, same for V
+    @ chroma
     vshll.u8 q3, d6, #3
     vshll.u8 q4, d8, #3
-    vsub.s16 q3, q3, q6
-    vsub.s16 q4, q4, q6
+    vdup.u16 q5, d0[1]
+    vqsub.u16 q3, q3, q5  @ U'
+    vqsub.u16 q4, q4, q5  @ V'
 
-    @ Calculate V' * Vred
-    vmull.s16 q9, d8, d0[3]
-    vmull.s16 q10, d9, d0[3]
-    vshrn.s32 d14, q9, #10
-    vshrn.s32 d15, q10, #10
+    @ V' * Vred
+    vmull.u16 q7, d8, d0[3]
+    vmull.u16 q8, d9, d0[3]
+    vqshrn.u32 d14, q7, #13
+    vqshrn.u32 d15, q8, #13
 
-    @ R = Y' * Ycoef + V' * Vred
-    vqadd.s16 q10, q1, q7
-    vqadd.s16 q11, q2, q7
-    vrshrn.s16 d20, q10, #8
-    vrshrn.s16 d21, q11, #8
-    vzip.u8 d20, d21
+    @ add up those motherfuckers
+    vqadd.u16 q8, q1, q7
+    vqadd.u16 q9,  q2, q7
+    vqshrn.u16 d26, q8, #3
+    vqshrn.u16 d27, q9, #3
+    vzip.u8 d26, d27
 
-    @ B = Y ' * Ycoef + U' * Ublue
-    vmull.s16 q8, d6, d1[0]
-    vmull.s16 q9, d7, d1[0]
-    vshrn.s32 d14, q8, #9
-    vshrn.s32 d15, q9, #9
+    @ U' * Ublue
+    vmull.u16 q5, d6, d1[0]
+    vmull.u16 q6, d7, d1[0]
+    vqshrn.u32 d10, q5, #13
+    vqshrn.u32 d11, q6, #13
 
-    vqadd.s16 q11, q1, q7
-    vqadd.s16 q12, q2, q7
-    vshrn.s16 d24, q11, #8
-    vshrn.s16 d25, q12, #8
-    vzip.u8 d24, d25
+    vqadd.u16 q6, q1, q5
+    vqadd.u16 q7, q2, q5
+    vqshrn.u16 d30, q6, #3
+    vqshrn.u16 d31, q7, #3
+    vzip.u8 d30, d31
 
-    @ G = Y' * Ycoef + U' * Ugreen + V' + Vgreen
-    vmull.s16 q7, d6, d1[1] @ U' + Ugreen
-    vmull.s16 q8, d7, d1[1]
-    vshrn.s32 d14, q7, #10
-    vshrn.s32 d15, q8, #10
+    @ U' * Ugreen
+    vmull.u16 q5, d6, d1[1]
+    vmull.u16 q6, d7, d1[1]
+    vqshrn.s32 d10, q5, #13
+    vqshrn.s32 d11, q6, #13
 
-    vmull.s16 q8, d8, d1[2] @ V' + Vgreen
-    vmull.s16 q9, d9, d1[2]
-    vshrn.s32 d16, q8, #10
-    vshrn.s32 d17, q9, #10
+    @ V' * Vgreen
+    vmull.s16 q7, d8, d1[2]
+    vmull.s16 q8, d9, d1[2]
+    vqshrn.s32 d14, q7, #13
+    vqshrn.s32 d15, q8, #13
 
-    vqadd.s16 q7, q7, q8  @ U' * Ugreen + V' * Vgreen
-    vqadd.s16 q11, q1, q7 @ add chroma to Y1
-    vqadd.s16 q13, q2, q7 @ add chroma to Y2
-    vshrn.s16 d22, q11, #8
-    vshrn.s16 d23, q13, #8
+    @ compose Green
+    vqadd.s16 q7, q5, q7
+    vqadd.s16 q8, q1, q7
+    vqadd.s16 q9, q2, q7
+    vqshrn.u16 d28, q8, #3
+    vqshrn.u16 d29, q9, #3
+    vzip.u8 d28, d29
 
-    vst3.8 {d20, d22, d24}, [r3, :64]!
-    vst3.8 {d21, d23, d25}, [r3, :64]
+    @ useles chroma shift
+    vqshrn.u16 d6, q3, #3
+    vqshrn.u16 d8, q4, #3
+
+    @veor q14, q14, q14
+    @veor q13, q13, q13
+    @veor q15, q15, q15
+
+    vst3.8 {d26, d28, d30}, [r3, :64]!
+    vst3.8 {d27, d29, d31}, [r3, :64]
 
     bx lr
 endfunc
