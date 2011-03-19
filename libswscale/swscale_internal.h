@@ -257,9 +257,9 @@ typedef struct SwsContext {
     DECLARE_ALIGNED(2, int16_t, oc);
     DECLARE_ALIGNED(2, int16_t, cy);
     DECLARE_ALIGNED(2, int16_t, crv);
-    DECLARE_ALIGNED(2, int16_t, cbu);
     DECLARE_ALIGNED(2, int16_t, cgu);
     DECLARE_ALIGNED(2, int16_t, cgv);
+    DECLARE_ALIGNED(2, int16_t, cbu);
     DECLARE_ALIGNED(2, int16_t, pad);
 #endif
 

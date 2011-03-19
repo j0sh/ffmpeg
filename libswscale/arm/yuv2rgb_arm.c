@@ -9,13 +9,13 @@ void ff_neon_yuv420_bgr24(uint8_t *y, uint8_t*u, uint8_t*v,
 static void neon_set_scalars(SwsContext *c)
 {
     // truncate scalars down to 16bit
-    c->oy  = c->yOffset; // c->yOffset has been pre-multiplied by 8
+    c->oy  = c->yOffset;
     c->oc  = c->uOffset;
     c->cy  = c->yCoeff;
     c->crv = c->vrCoeff;
-    c->cbu = c->ubCoeff;
     c->cgu = c->ugCoeff;
     c->cgv = c->vgCoeff;
+    c->cbu = c->ubCoeff;
     c->pad = 8;
     av_log(NULL, AV_LOG_ERROR, "cy %d crv %d cbu %d cgu %d cgv %d\n", c->cy, c->crv, c->cbu, c->cgu, c->cgv);
 }
@@ -32,19 +32,24 @@ static int neon_yuv420_bgr24(SwsContext *c, const uint8_t *src[], int srcStride[
         X' = X * 8 - Xoffset
      */
     int i, j;
-    uint8_t *srcy = src[0], *srcu = src[1], *srcv = src[2];
+    uint8_t *srcy = src[0], *srcu = src[1], *srcv = src[2], *u, *v;
     uint8_t *dstrgb = dst[0];
 
     //assert(!(srcStride[0] & 15)); // ensure its cleanly divisible
+#define STRIDE 16
 
     for (j = 0; j < sliceH; j++) {
-    for (i = 0; i < srcStride[0]; i+= 16) {
-
-        ff_neon_yuv420_bgr24(srcy, srcu, srcv, dstrgb, &c->oy);
-        dstrgb += 16*3;
-        srcy += 16;
-        srcu += 8; srcv += 8;
-    }
+        if (j & 1) {
+            srcu += srcStride[1];
+            srcv += srcStride[2];
+        }
+        u = srcu; v = srcv;
+        for (i = 0; i < srcStride[0]; i+= STRIDE) {
+            ff_neon_yuv420_bgr24(srcy, u, v, dstrgb, &c->oy);
+            dstrgb += STRIDE*3;
+            srcy += STRIDE;
+            u += 8; v += 8;
+        }
     }
 
     return sliceH;
