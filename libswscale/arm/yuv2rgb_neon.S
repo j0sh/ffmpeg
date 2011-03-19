@@ -7,7 +7,7 @@ function ff_neon_yuv420_bgr24, export=1
     @ load data into registers
     vld2.8 {q1},    [r0, :128] @ Y, split into registers for even/odd pixels
     ldr r0, [sp]            @ extra parameter
-    vld1.16 {q0},    [r0]   @ loads 8x16-bit scalars: oy, oc, cy, crv, cbu, cgu, cgv, pad
+    vld1.16 {q0},    [r0, :128]   @ loads 8x16-bit scalars: oy, oc, cy, crv, cbu, cgu, cgv, pad
 
     @ process each YUV pixel by the following:
     @ X' = X*8 - Xoffset

@@ -253,14 +253,17 @@ typedef struct SwsContext {
 #endif
 
 #if HAVE_NEON
-    DECLARE_ALIGNED(2, int16_t, oy);
-    DECLARE_ALIGNED(2, int16_t, oc);
-    DECLARE_ALIGNED(2, int16_t, cy);
-    DECLARE_ALIGNED(2, int16_t, crv);
-    DECLARE_ALIGNED(2, int16_t, cgu);
-    DECLARE_ALIGNED(2, int16_t, cgv);
-    DECLARE_ALIGNED(2, int16_t, cbu);
-    DECLARE_ALIGNED(2, int16_t, pad);
+    struct _neon_scalars {
+        int16_t oy;
+        int16_t oc;
+        int16_t cy;
+        int16_t crv;
+        int16_t cgu;
+        int16_t cgv;
+        int16_t cbu;
+        int16_t pad;
+    };
+    DECLARE_ALIGNED(16, struct _neon_scalars, neon_scalars);
 #endif
 
     /* function pointers for swScale() */

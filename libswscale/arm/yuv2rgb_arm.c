@@ -9,15 +9,13 @@ void ff_neon_yuv420_bgr24(uint8_t *y, uint8_t*u, uint8_t*v,
 static void neon_set_scalars(SwsContext *c)
 {
     // truncate scalars down to 16bit
-    c->oy  = c->yOffset;
-    c->oc  = c->uOffset;
-    c->cy  = c->yCoeff;
-    c->crv = c->vrCoeff;
-    c->cgu = c->ugCoeff;
-    c->cgv = c->vgCoeff;
-    c->cbu = c->ubCoeff;
-    c->pad = 8;
-    av_log(NULL, AV_LOG_ERROR, "cy %d crv %d cbu %d cgu %d cgv %d\n", c->cy, c->crv, c->cbu, c->cgu, c->cgv);
+    c->neon_scalars.oy  = c->yOffset;
+    c->neon_scalars.oc  = c->uOffset;
+    c->neon_scalars.cy  = c->yCoeff;
+    c->neon_scalars.crv = c->vrCoeff;
+    c->neon_scalars.cgu = c->ugCoeff;
+    c->neon_scalars.cgv = c->vgCoeff;
+    c->neon_scalars.cbu = c->ubCoeff;
 }
 
 static int neon_yuv420_bgr24(SwsContext *c, const uint8_t *src[], int srcStride[],
@@ -45,7 +43,7 @@ static int neon_yuv420_bgr24(SwsContext *c, const uint8_t *src[], int srcStride[
         }
         u = srcu; v = srcv;
         for (i = 0; i < srcStride[0]; i+= STRIDE) {
-            ff_neon_yuv420_bgr24(srcy, u, v, dstrgb, &c->oy);
+            ff_neon_yuv420_bgr24(srcy, u, v, dstrgb, &c->neon_scalars);
             dstrgb += STRIDE*3;
             srcy += STRIDE;
             u += 8; v += 8;
